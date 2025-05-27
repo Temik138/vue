@@ -3,105 +3,169 @@
         <div class="catalog">КАТАЛОГ</div>
         <div class="content-wrapper">
             <div class="products-grid">
-                <Link v-for="product in filteredProducts" :key="product.id" :href="`/products/${product.id}`"
-                    class="product-card">
-                <div class="image-container">
-                    <img class="product-image" :src="`/images/${product.image}`">
+                <template v-if="products.data && products.data.length > 0">
+                    <Link v-for="product in products.data" :key="product.id" :href="`/products/${product.id}`"
+                        class="product-card">
+                        <div class="image-container">
+                            <img class="product-image" :src="`/images/${product.image}`" :alt="product.name">
+                        </div>
+                        <div class="product-info">
+                            <div class="title">{{ product.name }}</div>
+                            <div class="price">{{ product.price }}р</div>
+                            <div class="product-rating">
+                                Рейтинг: {{ product.rating }} / 5.0
+                                <span v-for="n in 5" :key="n"
+                                    :class="{'star-filled': n <= product.rating, 'star-empty': n > product.rating}">★</span>
+                            </div>
+                        </div>
+                    </Link>
+                </template>
+                <div v-else class="no-products-message">
+                    Нет товаров, соответствующих выбранным фильтрам.
                 </div>
-                <div class="product-info">
-                    <div class="title">{{ product.name }}</div>
-                    <div class="price">{{ product.price }}р</div>
-                </div>
-                </Link>
             </div>
+
             <div class="filter-container">
                 <div class="filter">
                     <h3 class="filter-title">Категории</h3>
-                    <input type="checkbox" v-model="filters.kurs" id="check-kurs" />
-                    <label for="check-kurs">Курсы</label>
-                    <br>
-                    <input type="checkbox" v-model="filters.books" id="check-books" />
-                    <label for="check-books">Книги</label>
-                    <br>
-                    <input type="checkbox" v-model="filters.shabl" id="check-shabl" />
-                    <label for="check-shabl">Шаблоны</label>
+                    <div>
+                        <input type="checkbox" id="check-kurs" value="kurs" v-model="form.categories"
+                            @change="applyFilters" />
+                        <label for="check-kurs">Курсы</label>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="check-books" value="books" v-model="form.categories"
+                            @change="applyFilters" />
+                        <label for="check-books">Книги</label>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="check-shabl" value="shabl" v-model="form.categories"
+                            @change="applyFilters" />
+                        <label for="check-shabl">Шаблоны</label>
+                    </div>
+
 
                     <h3 class="filter-title">Цена</h3>
                     <div class="price-filter">
                         <div class="price-input">
                             <label for="min-price">От</label>
-                            <input type="number" id="min-price" v-model.number="priceRange.min" placeholder="0" min="0"
-                                class="price-field">
+                            <input type="number" id="min-price" v-model.number="form.min_price" placeholder="0" min="0"
+                                class="price-field" @input="applyFiltersWithDebounce">
                         </div>
                         <div class="price-input">
                             <label for="max-price">До</label>
-                            <input type="number" id="max-price" v-model.number="priceRange.max" placeholder="0" min="0"
-                                class="price-field">
+                            <input type="number" id="max-price" v-model.number="form.max_price" placeholder="0" min="0"
+                                class="price-field" @input="applyFiltersWithDebounce">
                         </div>
                     </div>
+
+                    <h3 class="filter-title">Рейтинг</h3>
+                    <select v-model="form.rating" @change="applyFilters" class="filter-select">
+                        <option :value="null">Любой рейтинг</option>
+                        <option value="4.0">От 4.0 звезд и выше</option>
+                        <option value="3.0">От 3.0 звезд и выше</option>
+                        <option value="2.0">От 2.0 звезд и выше</option>
+                        <option value="1.0">От 1.0 звезды и выше</option>
+                    </select>
                 </div>
             </div>
+        </div>
+
+        <div v-if="products.links && products.links.length > 3" class="pagination">
+            <template v-for="link in products.links" :key="link.url">
+                <Link
+                    v-if="link.url"
+                    :href="link.url"
+                    :class="{'pagination-link': true, 'active': link.active}"
+                    v-html="link.label"
+                />
+                <span v-else class="pagination-link disabled" v-html="link.label"></span>
+            </template>
         </div>
     </section>
 </template>
 
 <script>
 import { Link } from '@inertiajs/vue3';
+import { useForm } from '@inertiajs/vue3'; // Импортируем useForm
+import { throttle } from 'lodash'; // Для задержки при вводе цены
 
 export default {
     components: {
         Link,
     },
     props: {
-        products: {
-            type: Array,
+        products: { // Теперь это объект пагинации
+            type: Object,
             required: true,
-            default: () => [],
-            validator: (value) => Array.isArray(value)
-        }
+        },
+        filters: { // Передаем текущие фильтры из контроллера
+            type: Object,
+            default: () => ({
+                categories: [],
+                min_price: null,
+                max_price: null,
+                rating: null,
+            }),
+        },
     },
     data() {
         return {
-            filters: {
-                kurs: true,
-                books: true,
-                shabl: true
-            },
-            priceRange: {
-                min: null,
-                max: null
-            }
-        }
+            // Инициализируем form с текущими значениями из props.filters
+            form: useForm({
+                categories: this.filters.categories || [],
+                min_price: this.filters.min_price || null,
+                max_price: this.filters.max_price || null,
+                rating: this.filters.rating || null, // Добавляем рейтинг
+            }),
+            // Создаем дебаунс-функцию для применения фильтров по цене
+            applyFiltersWithDebounce: throttle(this.applyFilters, 500),
+        };
     },
-    computed: {
-        filteredProducts() {
-            if (!this.products || !Array.isArray(this.products)) return [];
+    methods: {
+        applyFilters() {
+            // Удаляем пустые значения из категорий для чистоты URL
+            const categories = this.form.categories.filter(Boolean);
 
-            return this.products.filter(product => {
-                // Проверка категории
-                const categoryMatch =
-                    (this.filters.kurs && product.category === 'kurs') ||
-                    (this.filters.books && product.category === 'books') ||
-                    (this.filters.shabl && product.category === 'shabl');
-
-                // Проверка цены
-                let priceMatch = true;
-                if (this.priceRange.min !== null && product.price < this.priceRange.min) {
-                    priceMatch = false;
+            // Отправляем GET-запрос на текущий URL, включая параметры формы
+            this.form.get(route('catalog'), {
+                data: { // Передаем только нужные параметры
+                    categories: categories.join(','), // Отправляем категории как строку, разделенную запятыми
+                    min_price: this.form.min_price,
+                    max_price: this.form.max_price,
+                    rating: this.form.rating,
+                },
+                preserveScroll: true, // Сохраняет позицию прокрутки
+                preserveState: true,  // Сохраняет состояние компонента
+                replace: true,        // Использовать replace state, чтобы не засорять историю браузера
+                onSuccess: () => {
+                    // При успешном запросе можно что-то сделать, например, сбросить состояние загрузки
+                },
+                onError: (errors) => {
+                    console.error('Ошибка при применении фильтров:', errors);
                 }
-                if (this.priceRange.max !== null && product.price > this.priceRange.max) {
-                    priceMatch = false;
-                }
-
-                return categoryMatch && priceMatch;
             });
+        },
+    },
+    watch: {
+        // Следим за изменениями пропсов filters, чтобы обновлять форму,
+        // если пользователь, например, использует кнопки "Назад/Вперед" в браузере.
+        filters: {
+            handler(newFilters) {
+                this.form.categories = newFilters.categories || [];
+                this.form.min_price = newFilters.min_price || null;
+                this.form.max_price = newFilters.max_price || null;
+                this.form.rating = newFilters.rating || null;
+            },
+            deep: true,
+            immediate: true, // Запускаем хендлер сразу при инициализации компонента
         }
     }
 }
 </script>
 
-
 <style scoped>
+/* Ваши существующие стили */
 .main-section {
     color: white;
     font-family: "Montserrat";
@@ -109,6 +173,7 @@ export default {
     min-height: 100vh;
     padding: 20px;
     box-sizing: border-box;
+    background-color: #884535; /* Добавил цвет фона для всей секции */
 }
 
 .catalog {
@@ -137,13 +202,29 @@ export default {
     border: dashed 2px white;
     border-radius: 8px;
     font-size: 18px;
+    width: 100%; /* Убедитесь, что ширина 100% для box-sizing */
+    box-sizing: border-box;
+    background-color: #7a3a2d; /* Цвет фона фильтра */
+}
+
+.filter h3 {
+    font-size: 20px;
+    margin-bottom: 15px;
+    color: #ffd700;
+    font-weight: bold;
 }
 
 .filter input[type="checkbox"] {
     margin-right: 10px;
-    accent-color: #884535;
+    accent-color: #ffd700; /* Цвет чекбокса */
     width: 18px;
     height: 18px;
+}
+
+.filter label {
+    cursor: pointer;
+    margin-bottom: 8px; /* Отступ между элементами списка категорий */
+    display: inline-block; /* Для правильного отображения отступа */
 }
 
 .products-grid {
@@ -165,11 +246,13 @@ export default {
     cursor: pointer;
     text-decoration: none;
     color: inherit;
+    background-color: #7a3a2d; /* Цвет фона карточки товара */
 }
 
 .product-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    border-color: #ffd700;
 }
 
 .image-container {
@@ -203,6 +286,7 @@ export default {
     text-align: center;
     word-break: break-word;
     width: 100%;
+    color: #ffd700; /* Цвет заголовка товара */
 }
 
 .price {
@@ -211,15 +295,6 @@ export default {
     color: #ffd700;
     text-align: center;
     margin-top: auto;
-}
-
-.filter {
-    padding: 20px;
-    border: dashed 2px white;
-    border-radius: 8px;
-    font-size: 18px;
-    width: 100%;
-    box-sizing: border-box;
 }
 
 .price-filter {
@@ -258,6 +333,83 @@ export default {
     border-color: #ffd700;
 }
 
+/* Стили для рейтинга */
+.product-rating {
+    font-size: 16px;
+    color: white;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.star-filled {
+    color: gold;
+    font-size: 20px;
+}
+
+.star-empty {
+    color: #ccc; /* Светло-серый для незаполненных звезд */
+    font-size: 20px;
+}
+
+.filter-select {
+    width: 100%;
+    padding: 10px;
+    border: dashed 1px white;
+    border-radius: 5px;
+    background-color: #884535;
+    color: white;
+    font-size: 16px;
+    outline: none;
+}
+
+.no-products-message {
+    font-size: 20px;
+    color: white;
+    text-align: center;
+    grid-column: 1 / -1; /* Чтобы сообщение занимало всю ширину грида */
+    padding: 50px 0;
+}
+
+/* Стили для пагинации */
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 30px;
+    padding-bottom: 40px; /* Отступ снизу для пагинации */
+}
+
+.pagination-link {
+    padding: 10px 15px;
+    background-color: #7a3a2d;
+    border: dashed 1px white;
+    border-radius: 5px;
+    color: white;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.pagination-link:hover {
+    background-color: #884535;
+    border-color: #ffd700;
+}
+
+.pagination-link.active {
+    background-color: #ffd700;
+    color: #7a3a2d;
+    border-color: #ffd700;
+    pointer-events: none; /* Делаем активную ссылку некликабельной */
+}
+
+.pagination-link.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* Медиа-запросы для адаптивности */
 @media (max-width: 1200px) {
     .products-grid {
         grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -307,22 +459,18 @@ export default {
         text-align: left;
     }
 
-    @media (max-width: 600px) {
-        .price-filter {
-            flex-direction: row;
-            flex-wrap: wrap;
-        }
+    .price-filter {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
 
-        .price-input {
-            flex: 1 1 calc(50% - 5px);
-            /* 50% ширины минус половина gap */
-            min-width: 0;
-            /* Разрешаем сжатие */
-        }
+    .price-input {
+        flex: 1 1 calc(50% - 5px);
+        min-width: 0;
+    }
 
-        .price-field {
-            max-width: none;
-        }
+    .price-field {
+        max-width: none;
     }
 }
 </style>

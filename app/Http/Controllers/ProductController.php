@@ -9,47 +9,34 @@ use Inertia\Inertia;
 
 class ProductController extends Controller
 {
-    public function index()
+
+    // Метод для страницы каталога
+    public function index(Request $request)
     {
-        // Определяем, откуда пришел запрос: из админ-панели или из каталога
-        // Это простой способ различать, но для более сложной логики лучше использовать отдельные контроллеры
-        if (request()->routeIs('admin.products.index')) {
-            // Если запрос пришел из админ-панели
-            return Inertia::render('Admin/Products/Index', [
-                'products' => Product::orderBy('id', 'desc')->paginate(10)->through(fn ($product) => [ // Добавим пагинацию
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'price' => $product->price,
-                    'image' => $product->image, // Основное изображение
-                ]),
-            ]);
-        } else {
-            // Если запрос пришел из публичного каталога
-            return Inertia::render('Catalog', [
-                'products' => Product::all()->map(function ($product) {
-                    // Преобразуем images из JSON строки в массив, если это строка
-                    $images_array = is_string($product->images)
-                        ? json_decode($product->images, true)
-                        : ($product->images ?? []); // Если уже массив или null
+        $query = Product::query();
 
-                    // Если images пуст, но есть основное изображение, добавляем его в галерею
-                    if (empty($images_array) && $product->image) {
-                        $images_array = [$product->image];
-                    }
-
-                    // Возвращаем все необходимые поля, включая image (основное) и images (галерея)
-                    return [
-                        'id' => $product->id,
-                        'name' => $product->name,
-                        'price' => $product->price,
-                        'image' => $product->image, // Основное изображение для карточки каталога
-                        'images' => $images_array, // Массив изображений для галереи на странице продукта
-                        'category' => $product->category, // Для фильтрации
-                    ];
-                })->toArray()
-            ]);
+        // Фильтрация по рейтингу
+        if ($request->has('rating') && is_numeric($request->rating)) {
+            $minRating = (float)$request->rating;
+            // Фильтруем товары, у которых рейтинг не ниже указанного
+            $query->where('rating', '>=', $minRating);
         }
+
+        // Вы можете добавить другие фильтры здесь, например, поиск по названию
+        if ($request->has('search')) {
+            $searchTerm = $request->input('search');
+            $query->where('name', 'like', '%' . $searchTerm . '%');
+        }
+
+        // Пагинация
+        $products = $query->paginate(9)->withQueryString(); // 9 товаров на странице
+
+        return Inertia::render('Catalog', [
+            'products' => $products,
+            'filters' => $request->only(['rating', 'search']) // Передаем текущие фильтры обратно во frontend
+        ]);
     }
+    
 
     public function show($id)
     {

@@ -1,7 +1,51 @@
+<script setup>
+import InputError from '@/Components/InputError.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+// Компоненты InputError и InputLabel могут быть не нужны, если вы используете свои элементы напрямую
+// Если они у вас используются, убедитесь, что пути правильные.
+
+import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { defineExpose } from 'vue';
+
+const props = defineProps({
+    mustVerifyEmail: {
+        type: Boolean,
+    },
+    status: {
+        type: String,
+    },
+});
+
+const user = usePage().props.auth.user;
+
+const form = useForm({
+    name: user.name,
+    email: user.email,
+});
+
+const submitForm = () => {
+    // *** ЭТО ГЛАВНОЕ ИЗМЕНЕНИЕ: Убедитесь, что здесь точно 'patch' ***
+    form.patch(route('profile.update'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            console.log('Информация профиля успешно обновлена!');
+            // Можете добавить здесь сброс формы или сообщение об успехе, если нужно
+            // form.reset(); // Если хотите сбросить поля после сохранения
+        },
+        onError: (errors) => {
+            console.error('Ошибка при обновлении информации профиля:', errors);
+        },
+    });
+};
+
+defineExpose({
+    submitForm
+});
+</script>
+
 <template>
     <section>
-
-        <form @submit.prevent="form.patch(route('profile.update'))" class="mt-6 space-y-6">
+        <form @submit.prevent="submitForm" class="mt-6 space-y-6">
             <div class="form-group">
                 <label for="name" class="form-label">Имя</label>
                 <input
@@ -54,52 +98,8 @@
     </section>
 </template>
 
-<script setup>
-import { Link, useForm, usePage } from '@inertiajs/vue3';
-import { defineExpose } from 'vue'; // Импортируем defineExpose
-
-defineProps({
-    mustVerifyEmail: {
-        type: Boolean,
-    },
-    status: {
-        type: String,
-    },
-});
-
-const user = usePage().props.auth.user;
-
-const form = useForm({
-    name: user.name,
-    email: user.email,
-    // Если вы добавили 'phone', убедитесь, что он есть в user.phone
-    // phone: user.phone,
-});
-
-// Выставляем метод submit наружу, чтобы родительский компонент мог его вызвать
-const submitForm = () => {
-  form.patch(route('profile.update'), {
-    preserveScroll: true,
-    onSuccess: () => {
-      // Можно добавить свою логику успеха, например, показать всплывающее окно
-      console.log('Информация профиля успешно обновлена!');
-    },
-    onError: (errors) => {
-      console.error('Ошибка при обновлении информации профиля:', errors);
-    },
-  });
-};
-
-defineExpose({
-  submitForm // Делаем метод submitForm доступным для родительского компонента
-});
-</script>
-
 <style scoped>
-/* Эти стили могут быть переопределены через :deep() в Edit.vue,
-   но если вы хотите, чтобы они работали напрямую, их можно здесь оставить
-   или скопировать в Edit.vue. Я оставляю их здесь для наглядности,
-   но основная стилизация будет из Edit.vue. */
+/* Ваши стили без изменений */
 .text-lg { font-size: 1.125rem; } /* 18px */
 .font-medium { font-weight: 500; }
 .text-white { color: white; }
@@ -113,8 +113,6 @@ defineExpose({
     margin-bottom: calc(1.5rem * var(--tw-space-y-reverse));
 }
 
-/* Стили для формы группы и инпутов будут переопределены из Edit.vue через :deep() */
-/* Но если вы хотите, чтобы они работали здесь напрямую, вам нужно скопировать их */
 .form-group {
     margin-bottom: 20px;
     display: flex;

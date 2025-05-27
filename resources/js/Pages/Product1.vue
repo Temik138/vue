@@ -17,6 +17,11 @@
                 </div>
                 <div class="product-info">
                     <h1 class="title-detail">{{ productData.name }}</h1>
+                    <div class="product-rating-detail">
+                        Рейтинг: {{ productData.rating }} / 5.0
+                        <span v-for="n in 5" :key="n"
+                            :class="{'star-filled-detail': n <= productData.rating, 'star-empty-detail': n > productData.rating}">★</span>
+                    </div>
                     <p class="description">{{ productData.description }}</p>
                     <div class="price-detail">{{ productData.price }}р</div>
 
@@ -65,24 +70,20 @@ export default {
             default: () => ({})
         }
     },
-    // Удаляем quantity из data(), так как теперь оно будет в useForm
     data() {
         return {
             mainImage: this.productData.image || (this.productData.images && this.productData.images.length > 0 ? this.productData.images[0] : null),
         };
     },
     setup(props) {
-        // Инициализируем form здесь, чтобы использовать useForm в setup
         const form = useForm({
             product_id: props.productData.id,
-            quantity: 1, // Количество по умолчанию
+            quantity: 1,
         });
 
-        // Доступ к данным страницы Inertia
         const page = usePage();
-       const isAuthenticated = computed(() => !!page.props.auth.user); // Используем Vue.computed для реактивности
+        const isAuthenticated = computed(() => !!page.props.auth.user);
 
-        // Возвращаем form и isAuthenticated, чтобы они были доступны в шаблоне
         return { form, isAuthenticated };
     },
     watch: {
@@ -90,8 +91,7 @@ export default {
             handler(newVal) {
                 if (newVal) {
                     this.mainImage = newVal.image || (newVal.images && newVal.images.length > 0 ? newVal.images[0] : null);
-                    // Обновляем product_id в форме, если productData меняется
-                    if (this.form) { // Проверяем, что form уже инициализирован
+                    if (this.form) {
                         this.form.product_id = newVal.id;
                     }
                 }
@@ -105,21 +105,14 @@ export default {
             this.mainImage = image;
         },
         addToCart() {
-            // Проверка на авторизацию на стороне клиента
             if (!this.isAuthenticated) {
-                // Это сообщение не должно показываться, так как кнопка будет скрыта/недоступна,
-                // но это как запасной вариант.
                 alert('Пожалуйста, авторизуйтесь, чтобы добавить товар в корзину.');
                 return;
             }
 
-            // `this.form` доступен, потому что мы его вернули из setup
             this.form.post(route('cart.add'), {
                 onSuccess: () => {
                     alert('Товар успешно добавлен в корзину!');
-                    // Опционально: перенаправить пользователя в корзину или показать уведомление
-                    // Inertia.visit(route('cart.index'));
-                    // Сбросить количество после успешного добавления
                     this.form.quantity = 1;
                 },
                 onError: (errors) => {
@@ -129,15 +122,6 @@ export default {
             });
         }
     },
-    // Добавьте `computed` для доступа к user, если вы не используете setup()
-    // Или убедитесь, что computed свойство `isAuthenticated` добавлено в `setup()`
-    // или как свойство класса, если вы используете Options API без setup()
-    // computed: {
-    //     isAuthenticated() {
-    //         // Этот код будет работать, если компонент еще не переведен на Composition API полностью
-    //         return !!this.$page.props.auth.user;
-    //     }
-    // }
 }
 </script>
 
@@ -154,6 +138,7 @@ export default {
     justify-content: center;
     align-items: flex-start;
     padding-top: 50px;
+    background-color: #884535; /* Добавил цвет фона для всей секции */
 }
 
 .product-detail-container {
@@ -254,7 +239,7 @@ export default {
     padding: 10px;
     border-radius: 5px;
     border: dashed 2px white;
-    background-color: #884535;
+    background-color: #7a3a2d; /* Цвет фона селектора количества */
     color: white;
     font-size: 18px;
     text-align: center;
@@ -292,13 +277,13 @@ export default {
 .auth-message {
     font-size: 18px;
     color: #ccc;
-    text-align: center; /* Центрируем, если это на отдельной строке */
-    width: 100%; /* Занимаем всю доступную ширину */
+    text-align: center;
+    width: 100%;
     margin: 20px 0;
 }
 
 .login-prompt-link, .register-prompt-link {
-    color: #ffd700; /* Золотистый цвет для ссылок */
+    color: #ffd700;
     text-decoration: underline;
     font-weight: bold;
     transition: color 0.2s ease;
@@ -306,6 +291,27 @@ export default {
 
 .login-prompt-link:hover, .register-prompt-link:hover {
     color: #ffb700;
+}
+
+/* Стили для рейтинга на странице продукта */
+.product-rating-detail {
+    font-size: 20px;
+    color: white;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: center; /* Центрируем, если вся инфо центрирована */
+}
+
+.star-filled-detail {
+    color: gold;
+    font-size: 24px;
+}
+
+.star-empty-detail {
+    color: #ccc;
+    font-size: 24px;
 }
 
 
@@ -342,8 +348,6 @@ export default {
     .product-detail-container {
         padding: 20px;
     }
-}
-@media (max-width: 600px) {
     .add-to-cart-section {
         flex-direction: column;
         align-items: stretch;
@@ -362,6 +366,12 @@ export default {
     }
     .auth-message {
         font-size: 16px;
+    }
+    .product-rating-detail {
+        font-size: 18px;
+    }
+    .star-filled-detail, .star-empty-detail {
+        font-size: 20px;
     }
 }
 </style>

@@ -1,7 +1,7 @@
 <template>
     <section>
-       
-        <form @submit.prevent="form.put(route('password.update'))" class="mt-6 space-y-6">
+
+        <form @submit.prevent="submitForm" class="mt-6 space-y-6">
             <div class="form-group">
                 <label for="current_password" class="form-label">Текущий пароль</label>
                 <input
@@ -46,8 +46,8 @@
 
 <script setup>
 import { useForm } from '@inertiajs/vue3';
-import { ref } from 'vue'; // Импортируем ref
-import { defineExpose } from 'vue'; // Импортируем defineExpose
+import { ref } from 'vue';
+import { defineExpose } from 'vue';
 
 const passwordInput = ref(null);
 const currentPasswordInput = ref(null);
@@ -60,7 +60,7 @@ const form = useForm({
 
 // Выставляем метод submit наружу
 const submitForm = () => {
-    form.put(route('password.update'), {
+    form.put(route('password.update'), { // <--- ВОТ ЗДЕСЬ ИЗМЕНЕНИЕ: Снова form.put()
         preserveScroll: true,
         onSuccess: () => {
             form.reset();
@@ -69,11 +69,9 @@ const submitForm = () => {
         onError: () => {
             if (form.errors.password) {
                 form.reset('password', 'password_confirmation');
-                passwordInput.value.focus();
             }
             if (form.errors.current_password) {
                 form.reset('current_password');
-                currentPasswordInput.value.focus();
             }
             console.error('Ошибка при обновлении пароля:', form.errors);
         },
@@ -81,13 +79,12 @@ const submitForm = () => {
 };
 
 defineExpose({
-    submitForm // Делаем метод submitForm доступным для родительского компонента
+    submitForm
 });
 </script>
 
 <style scoped>
-/* Аналогично UpdateProfileInformationForm.vue, стили здесь для наглядности,
-   но будут переопределены из Edit.vue через :deep() */
+/* Ваши стили без изменений */
 .text-lg { font-size: 1.125rem; }
 .font-medium { font-weight: 500; }
 .text-white { color: white; }
