@@ -58,12 +58,11 @@ const form = useForm({
     password_confirmation: '',
 });
 
-// Выставляем метод submit наружу
 const submitForm = () => {
-    form.put(route('password.update'), { // <--- ВОТ ЗДЕСЬ ИЗМЕНЕНИЕ: Снова form.put()
+    form.put(route('password.update'), {
         preserveScroll: true,
         onSuccess: () => {
-            form.reset();
+            form.reset(); // Сброс полей после успешного обновления пароля
             console.log('Пароль успешно обновлен!');
         },
         onError: () => {

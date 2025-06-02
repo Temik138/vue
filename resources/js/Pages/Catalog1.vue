@@ -3,8 +3,8 @@
         <div class="catalog">КАТАЛОГ</div>
         <div class="content-wrapper">
             <div class="products-grid">
-                <template v-if="products.data && products.data.length > 0">
-                    <Link v-for="product in products.data" :key="product.id" :href="`/products/${product.id}`"
+                <template v-if="products && products.length > 0">
+                    <Link v-for="product in products" :key="product.id" :href="`/products/${product.id}`"
                         class="product-card">
                         <div class="image-container">
                             <img class="product-image" :src="`/images/${product.image}`" :alt="product.name">
@@ -27,6 +27,12 @@
 
             <div class="filter-container">
                 <div class="filter">
+                    <h3 class="filter-title">Поиск</h3>
+                    <div>
+                        <input type="text" v-model="form.search" placeholder="Название товара..."
+                            class="price-field" @input="applyFiltersWithDebounce">
+                    </div>
+
                     <h3 class="filter-title">Категории</h3>
                     <div>
                         <input type="checkbox" id="check-kurs" value="kurs" v-model="form.categories"
@@ -71,76 +77,70 @@
             </div>
         </div>
 
-        <div v-if="products.links && products.links.length > 3" class="pagination">
-            <template v-for="link in products.links" :key="link.url">
-                <Link
-                    v-if="link.url"
-                    :href="link.url"
-                    :class="{'pagination-link': true, 'active': link.active}"
-                    v-html="link.label"
-                />
-                <span v-else class="pagination-link disabled" v-html="link.label"></span>
-            </template>
-        </div>
-    </section>
+        </section>
 </template>
 
 <script>
 import { Link } from '@inertiajs/vue3';
-import { useForm } from '@inertiajs/vue3'; // Импортируем useForm
-import { throttle } from 'lodash'; // Для задержки при вводе цены
+import { useForm } from '@inertiajs/vue3';
+import { throttle } from 'lodash';
 
 export default {
     components: {
         Link,
     },
     props: {
-        products: { // Теперь это объект пагинации
-            type: Object,
+        products: { // ИЗМЕНЕНО: Теперь это Array
+            type: Array, // <-- Должно быть Array
             required: true,
         },
-        filters: { // Передаем текущие фильтры из контроллера
+        filters: {
             type: Object,
             default: () => ({
                 categories: [],
                 min_price: null,
                 max_price: null,
                 rating: null,
+                search: null,
             }),
         },
     },
     data() {
         return {
-            // Инициализируем form с текущими значениями из props.filters
             form: useForm({
                 categories: this.filters.categories || [],
                 min_price: this.filters.min_price || null,
                 max_price: this.filters.max_price || null,
-                rating: this.filters.rating || null, // Добавляем рейтинг
+                rating: this.filters.rating || null,
+                search: this.filters.search || null,
             }),
-            // Создаем дебаунс-функцию для применения фильтров по цене
             applyFiltersWithDebounce: throttle(this.applyFilters, 500),
         };
     },
     methods: {
         applyFilters() {
-            // Удаляем пустые значения из категорий для чистоты URL
             const categories = this.form.categories.filter(Boolean);
 
-            // Отправляем GET-запрос на текущий URL, включая параметры формы
+            const params = {
+                categories: categories, // <-- ИЗМЕНЕНО: Передаем как массив
+                min_price: this.form.min_price,
+                max_price: this.form.max_price,
+                rating: this.form.rating,
+                search: this.form.search,
+            };
+
+            Object.keys(params).forEach(key => {
+                if (params[key] === null || params[key] === '' || (Array.isArray(params[key]) && params[key].length === 0)) {
+                    delete params[key];
+                }
+            });
+
             this.form.get(route('catalog'), {
-                data: { // Передаем только нужные параметры
-                    categories: categories.join(','), // Отправляем категории как строку, разделенную запятыми
-                    min_price: this.form.min_price,
-                    max_price: this.form.max_price,
-                    rating: this.form.rating,
-                },
-                preserveScroll: true, // Сохраняет позицию прокрутки
-                preserveState: true,  // Сохраняет состояние компонента
-                replace: true,        // Использовать replace state, чтобы не засорять историю браузера
-                onSuccess: () => {
-                    // При успешном запросе можно что-то сделать, например, сбросить состояние загрузки
-                },
+                data: params,
+                preserveScroll: true,
+                preserveState: true,
+                replace: true,
+                onSuccess: () => {},
                 onError: (errors) => {
                     console.error('Ошибка при применении фильтров:', errors);
                 }
@@ -148,17 +148,16 @@ export default {
         },
     },
     watch: {
-        // Следим за изменениями пропсов filters, чтобы обновлять форму,
-        // если пользователь, например, использует кнопки "Назад/Вперед" в браузере.
         filters: {
             handler(newFilters) {
                 this.form.categories = newFilters.categories || [];
                 this.form.min_price = newFilters.min_price || null;
                 this.form.max_price = newFilters.max_price || null;
                 this.form.rating = newFilters.rating || null;
+                this.form.search = newFilters.search || null;
             },
             deep: true,
-            immediate: true, // Запускаем хендлер сразу при инициализации компонента
+            immediate: true,
         }
     }
 }
@@ -407,7 +406,21 @@ export default {
     opacity: 0.5;
     cursor: not-allowed;
 }
-
+.filter div input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    background-color: #884535;
+    color: white;
+    font-family: "Montserrat";
+    box-sizing: border-box;
+    border: dashed 2px white;
+    margin-bottom: 15px; /* Отступ после поля поиска */
+}
+.filter div input[type="text"]:focus {
+    outline: none;
+    border-color: #ffd700;
+}
 
 /* Медиа-запросы для адаптивности */
 @media (max-width: 1200px) {

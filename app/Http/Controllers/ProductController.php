@@ -15,30 +15,42 @@ class ProductController extends Controller
     {
         $query = Product::query();
 
-        // Фильтрация по рейтингу
-        if ($request->has('rating') && is_numeric($request->rating)) {
-            $minRating = (float)$request->rating;
-            // Фильтруем товары, у которых рейтинг не ниже указанного
-            $query->where('rating', '>=', $minRating);
-        }
+        // Фильтрация по категориям
+    if ($request->has('categories') && is_array($request->input('categories'))) { // <-- Убедитесь, что это массив
+        $categories = $request->input('categories');
+        $query->whereIn('category', $categories);
+    }
 
-        // Вы можете добавить другие фильтры здесь, например, поиск по названию
-        if ($request->has('search')) {
-            $searchTerm = $request->input('search');
-            $query->where('name', 'like', '%' . $searchTerm . '%');
-        }
+    // Фильтрация по цене
+    if ($request->filled('min_price')) {
+        $query->where('price', '>=', (float)$request->input('min_price'));
+    }
+    if ($request->filled('max_price')) {
+        $query->where('price', '<=', (float)$request->input('max_price'));
+    }
 
-        // Пагинация
-        $products = $query->paginate(9)->withQueryString(); // 9 товаров на странице
+    // Фильтрация по рейтингу
+    if ($request->has('rating') && is_numeric($request->rating)) {
+        $minRating = (float)$request->rating;
+        $query->where('rating', '>=', $minRating);
+    }
 
-        return Inertia::render('Catalog', [
+    // Фильтрация по поиску
+    if ($request->has('search')) {
+        $searchTerm = $request->input('search');
+        $query->where('name', 'like', '%' . $searchTerm . '%');
+    }
+
+    $products = $query->get();
+
+        return Inertia::render('Catalog', [ // Или 'Catalog1', в зависимости от имени вашего компонента
             'products' => $products,
-            'filters' => $request->only(['rating', 'search']) // Передаем текущие фильтры обратно во frontend
+            'filters' => $request->only(['rating', 'search'])
         ]);
     }
     
 
-    public function show($id)
+       public function show($id)
     {
         $product = Product::findOrFail($id);
 
@@ -58,13 +70,15 @@ class ProductController extends Controller
         }
 
 
-        $product_for_vue = [
+         $product_for_vue = [
             'id' => $product->id,
             'name' => $product->name,
             'description' => $product->description,
             'price' => $product->price,
             'image' => $product->image,  // Основное изображение
             'images' => array_values(array_unique($images_array)), // Убираем дубликаты и переиндексируем
+            'rating' => $product->rating, // <-- Убедитесь, что эта строка присутствует!
+            // 'reviews_count' => $product->reviews_count, // Если вы добавили reviews_count
         ];
 
         return Inertia::render('Product', [

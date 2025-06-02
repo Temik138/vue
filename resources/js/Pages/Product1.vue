@@ -67,7 +67,16 @@ export default {
         productData: {
             type: Object,
             required: true,
-            default: () => ({})
+            default: () => ({
+                id: null, 
+                name: '', 
+                description: '', 
+                price: 0, 
+                image: '', 
+                images: [], 
+                rating: 0.0, 
+                
+            })
         }
     },
     data() {
